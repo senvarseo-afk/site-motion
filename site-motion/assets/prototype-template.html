@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en" data-v="b">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Motion prototype</title>
+<!-- Starter for a clickable A/B/C motion prototype. Replace the sample data, tokens and copy with the real site's.
+     A = feedback only. B = adds transitions, in-place expand and a sheet. C = adds swipe and a live notice.
+     Single file, no build step. The version bar is not part of the site.
+     Demo parts you can delete when the site has no timed data: the setInterval update block and the toast block. -->
+<style>
+:root{
+  /* Replace these with the site's own tokens. */
+  --bg:#f4f5f7;--card:#fff;--ink:#1b2230;--muted:#5b6474;--line:#e2e5ea;--brand:#2b4c9b;--accent:#e0a100;--soft:#e9eefb;
+  --ease:cubic-bezier(.2,.8,.2,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:#d9dde4;color:var(--ink);font:15px/1.45 system-ui,-apple-system,sans-serif}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 12px;background:#111827;color:#fff;font-size:13px}
+.bar button{min-height:40px;padding:0 14px;border-radius:8px;background:#374151;color:#fff;font-weight:700}
+.bar button[aria-pressed="true"]{background:var(--accent);color:#111}
+.bar span{color:#cbd5e1}
+.phone{position:relative;max-width:420px;height:calc(100dvh - 56px);min-height:520px;margin:0 auto;background:var(--bg);display:flex;flex-direction:column;overflow:hidden}
+.top{background:var(--card);padding:12px 16px;font-weight:800;color:var(--brand);border-bottom:1px solid var(--line);flex:0 0 auto}
+.view{flex:1;min-height:0;overflow-y:auto;padding:12px 16px 90px;display:flex;flex-direction:column;gap:10px}
+.view[hidden]{display:none}
+.board{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.row{border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.head{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 14px;text-align:left;min-height:52px}
+.title{font-weight:700}
+.value{font-variant-numeric:tabular-nums;color:var(--brand);font-weight:700}
+.det{display:grid;grid-template-rows:0fr}
+.det>div{overflow:hidden}
+.in{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px;color:var(--muted);font-size:14px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{min-height:44px;border-radius:8px;font-weight:700;background:var(--soft);color:var(--brand);display:flex;align-items:center;justify-content:center;text-decoration:none}
+.btn.p{background:var(--brand);color:#fff}
+.ad{height:100px;border:1px dashed #aab1bd;border-radius:8px;display:grid;place-items:center;color:var(--muted);font-size:12px}
+.ad.anchor{position:absolute;left:0;right:0;bottom:0;height:60px;border-radius:0;border-width:1px 0 0;background:#fff;z-index:2}
+.hero{background:var(--brand);color:#fff;border-radius:10px;padding:16px}
+.hero h2{margin:0;font-size:22px}
+.back{min-height:44px;font-weight:700;color:var(--brand);text-align:left}
+.sub{color:var(--muted);font-size:13px}
+.toast{position:absolute;left:12px;right:12px;top:56px;z-index:4;width:calc(100% - 24px);background:#111827;color:#fff;border-radius:10px;padding:11px 12px;text-align:left;transform:translateY(-140%);opacity:0;transition:transform .35s var(--ease),opacity .3s ease}
+.toast.on{transform:none;opacity:1}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:5}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-radius:16px 16px 0 0;padding:16px;display:flex;flex-direction:column;gap:10px;transform:translateY(100%)}
+.sheet.on{transform:none}
+.dim[hidden]{display:none}
+
+/* A: feedback. On every version. */
+.head:active,.btn:active{transform:scale(.97)}
+.head,.btn{transition:transform .1s ease}
+.changed{animation:changed .9s ease}
+@keyframes changed{from{background:var(--soft)}to{background:transparent}}
+
+/* B and C: motion that A does not get. */
+:root:not([data-v="a"]) .det{transition:grid-template-rows .28s var(--ease)}
+:root:not([data-v="a"]) .sheet{transition:transform .26s var(--ease)}
+.open .det{grid-template-rows:1fr}
+::view-transition-group(*){animation-duration:.34s;animation-timing-function:var(--ease)}
+::view-transition-old(root){animation-duration:.14s}
+::view-transition-new(root){animation-duration:.24s}
+
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important}::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none!important}}
+</style>
+</head>
+<body>
+<div class="bar" role="group" aria-label="Version">
+  <button data-version="a">A</button><button data-version="b">B</button><button data-version="c">C</button>
+  <span id="hint"></span>
+</div>
+<div class="phone" id="phone">
+  <div class="top">Site name</div>
+  <section class="view" id="list">
+    <div class="sub">Updated <span id="age">0s</span> ago · sample data</div>
+    <div class="board" id="board"></div>
+    <div class="ad">Ad placeholder 300×100</div>
+  </section>
+  <section class="view" id="detail" hidden></section>
+  <button class="toast" id="toast" type="button"></button>
+  <div class="ad anchor" id="anchor">Anchor ad placeholder</div>
+  <div class="dim" id="dim" hidden></div>
+  <div class="sheet" id="sheet" role="dialog" aria-label="Details"></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  // Replace with a small sample of the site's real data.
+  var DATA = [
+    { id: 'one', title: 'Sample item one', value: '128', note: 'Longer detail for the first item.' },
+    { id: 'two', title: 'Sample item two', value: '64', note: 'Longer detail for the second item.' },
+    { id: 'three', title: 'Sample item three', value: '32', note: 'Longer detail for the third item.' }
+  ];
+  var HINTS = { a: 'Press a row. Watch the value update.', b: 'Expand a row, open the sheet, open the page.', c: 'Also swipe left on a page and wait for the notice.' };
+  var root = document.documentElement, $ = function (id) { return document.getElementById(id); };
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var version = /^#[abc]$/.test(location.hash) ? location.hash.slice(1) : 'b';
+  var el = function (tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+
+  function renderList() {
+    var board = $('board'); board.textContent = '';
+    DATA.forEach(function (d) {
+      var row = el('div', 'row'), head = el('button', 'head'), det = el('div', 'det'), wrap = el('div'), inner = el('div', 'in');
+      row.dataset.id = d.id; head.type = 'button'; head.setAttribute('aria-expanded', 'false');
+      var title = el('span', 'title', d.title), value = el('span', 'value', d.value);
+      head.append(title, value);
+      var actions = el('div', 'actions'), more = el('button', 'btn', 'Details'), open = el('button', 'btn p', 'Open page');
+      more.type = open.type = 'button';
+      more.addEventListener('click', function () { openSheet(d); });
+      open.addEventListener('click', function () { goDetail(d, value); });
+      actions.append(more, open); inner.append(el('div', '', d.note), actions); wrap.append(inner); det.append(wrap); row.append(head, det);
+      head.addEventListener('click', function () {
+        if (version === 'a') { goDetail(d, value); return; } // A keeps plain navigation.
+        var on = row.classList.toggle('open'); head.setAttribute('aria-expanded', String(on));
+      });
+      board.append(row);
+    });
+  }
+
+  // Shared-element move. Falls back to a plain swap when the API is missing, on version A and for reduced motion.
+  function fly(from, to, update) {
+    if (version === 'a' || reduce || !document.startViewTransition) { update(); return; }
+    from.style.viewTransitionName = 'shared';
+    var t = document.startViewTransition(function () { from.style.viewTransitionName = ''; update(); to.style.viewTransitionName = 'shared'; });
+    var clean = function () { from.style.viewTransitionName = ''; to.style.viewTransitionName = ''; };
+    t.ready.catch(function () {}); // A skipped transition rejects ready. The page has still updated.
+    t.finished.then(clean, clean);
+  }
+
+  function goDetail(d, source) {
+    var detail = $('detail'); detail.textContent = '';
+    var back = el('button', 'back', '‹ Back'), hero = el('div', 'hero'), big = el('h2', '', d.value), label = el('div', '', d.title);
+    back.type = 'button'; hero.append(label, big);
+    detail.append(back, hero, el('p', 'sub', d.note), el('div', 'ad', 'Ad placeholder 300×100'));
+    back.addEventListener('click', function () { fly(big, source, function () { show('list'); }); });
+    fly(source, big, function () { show('detail'); });
+  }
+  function show(id) { $('list').hidden = id !== 'list'; $('detail').hidden = id !== 'detail'; }
+
+  function openSheet(d) {
+    var s = $('sheet'); s.textContent = '';
+    var close = el('button', 'btn', 'Close'); close.type = 'button'; close.addEventListener('click', closeSheet);
+    s.append(el('strong', '', d.title), el('div', 'sub', d.note), close);
+    $('dim').hidden = false; s.classList.add('on');
+  }
+  function closeSheet() { $('sheet').classList.remove('on'); $('dim').hidden = true; }
+  $('dim').addEventListener('click', closeSheet);
+
+  // C: swipe on the detail page goes back. Horizontal only, and leaves the screen edges to the system.
+  var sx = 0, sy = 0, track = false;
+  $('detail').addEventListener('pointerdown', function (e) { var r = $('phone').getBoundingClientRect(); track = version === 'c' && e.clientX - r.left > 20 && r.right - e.clientX > 20; sx = e.clientX; sy = e.clientY; });
+  $('detail').addEventListener('pointerup', function (e) { if (!track) return; track = false; var dx = e.clientX - sx, dy = e.clientY - sy; if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 1.5) { var b = $('detail').querySelector('.back'); if (b) b.click(); } });
+
+  // A: visible update signal. Only the node that changed is highlighted. Demo timer: replace with real data, or delete.
+  var age = 0;
+  setInterval(function () { age += 1; $('age').textContent = age + 's'; }, 1000);
+  setInterval(function () {
+    var d = DATA[0]; d.value = String(Number(d.value) + 1); age = 0;
+    var v = document.querySelector('.row[data-id="one"] .value'); if (!v) return;
+    v.textContent = d.value; v.classList.remove('changed'); void v.offsetWidth; v.classList.add('changed');
+  }, 8000);
+
+  // C: live notice. Tapping jumps to the row and highlights it. Only keep this if the real site has live events.
+  setTimeout(function () { if (version !== 'c') return; var t = $('toast'); t.textContent = 'New: ' + DATA[1].title; t.classList.add('on'); setTimeout(function () { t.classList.remove('on'); }, 6000); }, 6000);
+  $('toast').addEventListener('click', function () { $('toast').classList.remove('on'); show('list'); var r = document.querySelector('.row[data-id="two"]'); r.classList.add('open'); r.classList.remove('changed'); void r.offsetWidth; r.classList.add('changed'); });
+
+  function setVersion(v) {
+    version = v; root.dataset.v = v; $('hint').textContent = HINTS[v];
+    document.querySelectorAll('[data-version]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.version === v)); });
+    try { history.replaceState(null, '', '#' + v); } catch (e) {}
+    closeSheet(); show('list'); renderList();
+  }
+  document.querySelectorAll('[data-version]').forEach(function (b) { b.addEventListener('click', function () { setVersion(b.dataset.version); }); });
+  setVersion(version);
+})();
+</script>
+</body>
+</html>
